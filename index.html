@@ -33,6 +33,7 @@ th,td{border-bottom:2px solid var(--k);padding:8px;text-align:left}th{background
 .bar{display:flex;gap:2px;align-items:flex-end;height:150px;border-bottom:2px solid var(--k)}
 .bar div{flex:1;display:flex;gap:1px;align-items:flex-end;height:100%}.bar i{flex:1;display:block}
 .login{max-width:340px;margin:12vh auto;text-align:center;background:var(--y)}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.pad button{width:100%;padding:14px 0;font-size:20px}.dots{border:2px solid var(--k);background:var(--w);padding:8px;font-size:22px;letter-spacing:5px;min-height:46px}
 .pos{color:#117a3d}.neg{color:var(--r)}
 @media(max-width:760px){body{padding:8px}.app{grid-template-columns:1fr}aside{flex-direction:row;flex-wrap:wrap}.logo{margin:0}aside .sp{display:none}h1{font-size:26px}}
 </style>
@@ -62,14 +63,25 @@ async function load() {
 async function post(o) { await fetch(API, {method:'POST', body: JSON.stringify({pw, ...o})}); }
 
 function loginView(msg) {
+  let v = '';
   $('#root').innerHTML = `<div class="box login"><h1>CITY GRILL</h1><p>กรอกรหัสผ่านเพื่อเข้าใช้งาน</p>
-  <input id="pw" type="password" inputmode="numeric" autocomplete="new-password" placeholder="รหัสผ่าน"><p class="neg">${msg||''}</p>
-  <button class="b" id="go">เข้าสู่ระบบ</button></div>`;
+  <div id="dots" class="dots">&nbsp;</div><p class="neg">${msg||'&nbsp;'}</p>
+  <div class="pad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button class="b l" data-n="${n}">${n}</button>`).join('')}
+  <button class="b l" id="clr">ลบ</button><button class="b l" data-n="0">0</button><button class="b" id="go">ตกลง</button></div></div>`;
+  const show = () => $('#dots').innerHTML = v ? '●'.repeat(v.length) : '&nbsp;';
   const go = async () => {
-    pw = $('#pw').value; $('#go').textContent = 'กำลังเชื่อมต่อ...';
-    try { await load(); localStorage.cg_pw = pw; render(); } catch { loginView('รหัสผ่านไม่ถูกต้อง หรือเชื่อมต่อไม่ได้'); }
+    if (!v) return; pw = v; $('#go').textContent = '...';
+    try { await load(); localStorage.cg_pw = pw; document.onkeydown = null; render(); }
+    catch { loginView('รหัสผ่านไม่ถูกต้อง หรือเชื่อมต่อไม่ได้'); }
   };
-  $('#go').onclick = go; $('#pw').onkeydown = e => e.key === 'Enter' && go();
+  document.querySelectorAll('[data-n]').forEach(b => b.onclick = () => { if (v.length < 16) { v += b.dataset.n; show(); } });
+  $('#clr').onclick = () => { v = v.slice(0, -1); show(); };
+  $('#go').onclick = go;
+  document.onkeydown = e => {
+    if (/^\d$/.test(e.key) && v.length < 16) { v += e.key; show(); }
+    else if (e.key === 'Backspace') { v = v.slice(0, -1); show(); }
+    else if (e.key === 'Enter') go();
+  };
 }
 
 function nav() {
