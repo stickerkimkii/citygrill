@@ -63,7 +63,7 @@ async function post(o) { await fetch(API, {method:'POST', body: JSON.stringify({
 
 function loginView(msg) {
   $('#root').innerHTML = `<div class="box login"><h1>CITY GRILL</h1><p>กรอกรหัสผ่านเพื่อเข้าใช้งาน</p>
-  <input id="pw" type="password" placeholder="รหัสผ่าน"><p class="neg">${msg||''}</p>
+  <input id="pw" type="password" inputmode="numeric" autocomplete="new-password" placeholder="รหัสผ่าน"><p class="neg">${msg||''}</p>
   <button class="b" id="go">เข้าสู่ระบบ</button></div>`;
   const go = async () => {
     pw = $('#pw').value; $('#go').textContent = 'กำลังเชื่อมต่อ...';
