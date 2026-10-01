@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CITY GRILL Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@600;700&family=IBM+Plex+Sans+Thai:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#fdf3dc;--y:#f7c331;--g:#a8d8b9;--p:#f9c6f5;--k:#111;--w:#fff;--r:#d6322b}
+*{box-sizing:border-box}
+body{margin:0;font:15px 'IBM Plex Sans Thai',sans-serif;color:var(--k);background:linear-gradient(115deg,#4da3ff 0 25%,#f6cfa8 25% 55%,#ff9a76 55% 75%,#ffb6c9 75%);min-height:100vh;padding:24px}
+h1,h2,h3,.mono{font-family:'IBM Plex Mono','IBM Plex Sans Thai',monospace;margin:0}
+.app{display:grid;grid-template-columns:200px 1fr;border:3px solid var(--k);background:var(--g);box-shadow:6px 6px 0 var(--k);max-width:1200px;margin:auto;min-height:85vh}
+aside{padding:18px 12px;display:flex;flex-direction:column;gap:6px}
+.logo{font:700 20px 'IBM Plex Mono';border:2px solid var(--k);background:var(--w);padding:6px 10px;margin-bottom:14px;text-align:center}
+aside button{all:unset;cursor:pointer;padding:9px 12px;font-weight:600}
+aside button.on{background:var(--k);color:var(--w)}
+aside .sp{flex:1}
+main{margin:12px;border:3px solid var(--k);background:var(--bg);padding:22px;overflow:auto}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+h1{font-size:34px}
+.box{border:2px solid var(--k);background:var(--w);box-shadow:4px 4px 0 var(--k);padding:14px;margin-bottom:20px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:20px}
+.stats .box{margin:0}.stats small{display:block;font-weight:600}.stats b{font:700 26px 'IBM Plex Mono'}
+input,select,button.b{font:inherit;border:2px solid var(--k);padding:8px;background:var(--w);width:100%}
+button.b{cursor:pointer;font-weight:700;background:var(--k);color:var(--w);width:auto;padding:9px 18px}
+button.b.l{background:var(--w);color:var(--k)}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end;background:var(--y)}
+label{font-weight:600;font-size:13px;display:block;margin-bottom:3px}
+table{border-collapse:collapse;width:100%;min-width:560px}
+th,td{border-bottom:2px solid var(--k);padding:8px;text-align:left}th{background:var(--y)}
+.wrap{overflow-x:auto}.num{text-align:right;font-family:'IBM Plex Mono'}
+.bar{display:flex;gap:2px;align-items:flex-end;height:150px;border-bottom:2px solid var(--k)}
+.bar div{flex:1;display:flex;gap:1px;align-items:flex-end;height:100%}.bar i{flex:1;display:block}
+.login{max-width:340px;margin:12vh auto;text-align:center;background:var(--y)}
+.pos{color:#117a3d}.neg{color:var(--r)}
+@media(max-width:760px){body{padding:8px}.app{grid-template-columns:1fr}aside{flex-direction:row;flex-wrap:wrap}.logo{margin:0}aside .sp{display:none}h1{font-size:26px}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const API = "https://script.google.com/macros/s/AKfycbylgsnGptVAvwa9A6_Fz3npWVdRYfham509igJLmTPz3QAMaKBFaLuncQyAciH0OB_C/exec"; // URL ของ Web App จาก Apps Script
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt = n => (+n || 0).toLocaleString('th-TH');
+const sum = a => a.reduce((s, r) => s + (+r.amount || 0), 0);
+const today = () => new Date().toLocaleDateString('sv');
+const CAT = ['ค่าเช่า','ค่าแก๊ส/ถ่าน','ค่าน้ำ/ไฟ','ค่าแรง','อุปกรณ์/บรรจุภัณฑ์','อื่นๆ'];
+const T = {
+  sales: {name:'ยอดขาย', f:[{k:'date',l:'วันที่',t:'date'},{k:'item',l:'รายการ'},{k:'qty',l:'จำนวน',t:'number'},{k:'amount',l:'ยอดขาย (บาท)',t:'number'},{k:'channel',l:'ช่องทาง',o:['หน้าร้าน','เดลิเวอรี่','อื่นๆ']},{k:'note',l:'หมายเหตุ'}]},
+  costs: {name:'ต้นทุน', f:[{k:'date',l:'วันที่',t:'date'},{k:'category',l:'หมวด',o:CAT},{k:'amount',l:'จำนวนเงิน (บาท)',t:'number'},{k:'note',l:'หมายเหตุ'}]},
+  buy:   {name:'วัตถุดิบ', f:[{k:'date',l:'วันที่',t:'date'},{k:'item',l:'วัตถุดิบ'},{k:'qty',l:'จำนวน',t:'number'},{k:'unit',l:'หน่วย',o:['กก.','ชิ้น','ถุง','แพ็ค','อื่นๆ']},{k:'amount',l:'ราคารวม (บาท)',t:'number'},{k:'supplier',l:'ร้านที่ซื้อ'},{k:'note',l:'หมายเหตุ'}]}
+};
+let pw = localStorage.cg_pw || '', user = '', D = {sales:[],costs:[],buy:[]}, tab = 'dash', month = today().slice(0,7);
+
+async function load() {
+  const r = await (await fetch(API + '?' + new URLSearchParams({pw}))).json();
+  if (!r.ok) throw 0;
+  user = r.user; D = r.data;
+}
+async function post(o) { await fetch(API, {method:'POST', body: JSON.stringify({pw, ...o})}); }
+
+function loginView(msg) {
+  $('#root').innerHTML = `<div class="box login"><h1>CITY GRILL</h1><p>กรอกรหัสผ่านเพื่อเข้าใช้งาน</p>
+  <input id="pw" type="password" placeholder="รหัสผ่าน"><p class="neg">${msg||''}</p>
+  <button class="b" id="go">เข้าสู่ระบบ</button></div>`;
+  const go = async () => {
+    pw = $('#pw').value; $('#go').textContent = 'กำลังเชื่อมต่อ...';
+    try { await load(); localStorage.cg_pw = pw; render(); } catch { loginView('รหัสผ่านไม่ถูกต้อง หรือเชื่อมต่อไม่ได้'); }
+  };
+  $('#go').onclick = go; $('#pw').onkeydown = e => e.key === 'Enter' && go();
+}
+
+function nav() {
+  const items = [['dash','Dashboard'],['sales','ยอดขาย'],['costs','ต้นทุน'],['buy','วัตถุดิบ']];
+  return `<aside><div class="logo">CITY GRILL</div>${items.map(([k,l]) => `<button class="${tab===k?'on':''}" data-t="${k}">${l}</button>`).join('')}
+  <div class="sp"></div><button id="out">Log out</button></aside>`;
+}
+
+function dash() {
+  const m = k => D[k].filter(r => String(r.date).startsWith(month));
+  const s = m('sales'), c = m('costs'), b = m('buy');
+  const inc = sum(s), exp = sum(c) + sum(b), pf = inc - exp;
+  const days = new Date(+month.slice(0,4), +month.slice(5), 0).getDate();
+  const di = Array(days).fill(0), de = Array(days).fill(0);
+  s.forEach(r => di[+String(r.date).slice(8,10)-1] += +r.amount || 0);
+  [...c, ...b].forEach(r => de[+String(r.date).slice(8,10)-1] += +r.amount || 0);
+  const mx = Math.max(1, ...di, ...de);
+  const cats = {}; c.forEach(r => cats[r.category] = (cats[r.category]||0) + (+r.amount||0));
+  return `<div class="stats">
+  <div class="box" style="background:var(--y)"><small>รายรับ</small><b>${fmt(inc)}</b></div>
+  <div class="box" style="background:var(--p)"><small>ต้นทุน</small><b>${fmt(sum(c))}</b></div>
+  <div class="box" style="background:var(--g)"><small>ซื้อวัตถุดิบ</small><b>${fmt(sum(b))}</b></div>
+  <div class="box"><small>${pf>=0?'กำไร':'ขาดทุน'}</small><b class="${pf>=0?'pos':'neg'}">${fmt(pf)}</b></div></div>
+  <div class="box"><h3>รายวัน <small>(เขียว = รายรับ, ชมพู = รายจ่าย)</small></h3><br>
+  <div class="bar">${di.map((v,i)=>`<div title="วันที่ ${i+1}"><i style="height:${v/mx*100}%;background:#2e9e5b"></i><i style="height:${de[i]/mx*100}%;background:#e66ab8"></i></div>`).join('')}</div></div>
+  <div class="box"><h3>ต้นทุนแยกหมวด</h3>${Object.keys(cats).length ? `<table>${Object.entries(cats).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="num">${fmt(v)}</td></tr>`).join('')}</table>` : '<p>ยังไม่มีข้อมูล</p>'}</div>`;
+}
+
+function section(k) {
+  const {f, name} = T[k];
+  const rows = D[k].filter(r => String(r.date).startsWith(month)).sort((a,b) => String(b.date).localeCompare(String(a.date)));
+  const inp = x => `<div><label>${x.l}</label>` + (x.o ? `<select id="f_${x.k}">${x.o.map(o=>`<option>${o}</option>`).join('')}</select>`
+    : `<input id="f_${x.k}" type="${x.t||'text'}" ${x.t==='number'?'step="any" inputmode="decimal"':''} ${x.t==='date'?`value="${today()}"`:''}>`) + '</div>';
+  return `<div class="box form">${f.map(inp).join('')}<div><button class="b" id="add">+ บันทึก${name}</button></div></div>
+  <div class="box"><h3>รายการเดือนนี้ — รวม ${fmt(sum(rows))} บาท</h3><br><div class="wrap"><table>
+  <tr>${f.map(x=>`<th>${x.l}</th>`).join('')}<th>ผู้บันทึก</th><th></th></tr>
+  ${rows.map(r=>`<tr>${f.map(x=>`<td class="${x.k==='amount'?'num':''}">${x.k==='amount'?fmt(r[x.k]):esc(r[x.k])}</td>`).join('')}<td>${esc(r.by)}</td><td><button class="b l" data-d="${r.id}">ลบ</button></td></tr>`).join('') || `<tr><td colspan="${f.length+2}">ยังไม่มีข้อมูล</td></tr>`}
+  </table></div></div>`;
+}
+
+function render() {
+  const title = tab === 'dash' ? 'Dashboard' : T[tab].name;
+  $('#root').innerHTML = `<div class="app">${nav()}<main><div class="top"><h1>${title}</h1>
+  <div><input id="mo" type="month" value="${month}"></div></div>${tab==='dash' ? dash() : section(tab)}
+  <p><small>เข้าสู่ระบบเป็น: ${esc(user)}</small></p></main></div>`;
+  document.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { tab = b.dataset.t; render(); });
+  $('#out').onclick = () => { localStorage.removeItem('cg_pw'); loginView(); };
+  $('#mo').onchange = e => { month = e.target.value || month; render(); };
+  if (tab === 'dash') return;
+  $('#add').onclick = async e => {
+    const row = {}; T[tab].f.forEach(x => row[x.k] = $('#f_'+x.k).value);
+    if (!row.date || !(+row.amount > 0)) return alert('กรุณากรอกวันที่และจำนวนเงิน');
+    e.target.textContent = 'กำลังบันทึก...'; e.target.disabled = true;
+    await post({a:'add', tab, row}); await load(); render();
+  };
+  document.querySelectorAll('[data-d]').forEach(b => b.onclick = async () => {
+    if (!confirm('ลบรายการนี้?')) return;
+    b.textContent = '...'; await post({a:'del', tab, id:b.dataset.d}); await load(); render();
+  });
+}
+
+(async () => { if (pw) { try { await load(); return render(); } catch {} } loginView(); })();
+</script>
+</body>
+</html>
